@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worship Sheet Manager</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Load jsPDF from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Load Data -->
+    <script src="songs_data.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Worship Sheet Manager</h1>
+            <p>찬양곡을 선택하여 PDF로 병합하세요.</p>
+        </header>
+
+        <main>
+            <section class="search-section">
+                <input type="text" id="searchInput" placeholder="곡 제목 검색..." />
+                <div id="searchResults" class="song-list">
+                    <!-- Search results will appear here -->
+                </div>
+            </section>
+
+            <section class="setlist-section">
+                <div class="setlist-header">
+                    <h2>Setlist (선택된 곡)</h2>
+                    <button id="generatePdfBtn" class="primary-btn" disabled>PDF 다운로드</button>
+                </div>
+                <div id="setlist" class="song-list setlist-container">
+                    <p class="empty-message">곡을 선택하여 이곳에 추가하세요.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for Preview -->
+    <div id="imageModal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modalImage">
+        <div id="caption"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
