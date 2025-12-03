@@ -177,7 +177,19 @@ async function fetchImage(url) {
         console.log("wsrv.nl fetch failed, trying local proxy...", e);
     }
 
-    // 3. Try local proxy (if running via server.py)
+    // 3. Try corsproxy.io (Another Public Proxy)
+    try {
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        if (response.ok) {
+            const blob = await response.blob();
+            return blobToDataURL(blob);
+        }
+    } catch (e) {
+        console.log("corsproxy.io fetch failed, trying local proxy...", e);
+    }
+
+    // 4. Try local proxy (if running via server.py)
     try {
         const proxyUrl = `/proxy?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
@@ -186,7 +198,7 @@ async function fetchImage(url) {
         return blobToDataURL(blob);
     } catch (e) {
         console.error("All fetch methods failed", e);
-        throw new Error("이미지를 불러올 수 없습니다. (CORS/Network Error)");
+        throw new Error(`이미지를 불러올 수 없습니다. (URL: ${url.substring(0, 30)}...)`);
     }
 }
 
