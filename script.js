@@ -149,18 +149,35 @@ async function generatePDF() {
 }
 
 async function fetchImage(url) {
-    // 1. Try direct fetch first (works if CORS headers are present)
+    // 1. Try direct fetch with no-referrer (bypasses some hotlink protections)
     try {
-        const response = await fetch(url, { mode: 'cors' });
+        const response = await fetch(url, {
+            mode: 'cors',
+            referrerPolicy: 'no-referrer'
+        });
         if (response.ok) {
             const blob = await response.blob();
             return blobToDataURL(blob);
         }
     } catch (e) {
-        console.log("Direct fetch failed, trying proxy...", e);
+        console.log("Direct fetch failed, trying wsrv.nl proxy...", e);
     }
 
-    // 2. Try local proxy (if running via server.py)
+    // 2. Try wsrv.nl (Public CORS Proxy / Image Cache)
+    // This is useful for GitHub Pages where local proxy isn't available.
+    try {
+        // wsrv.nl requires the URL to be encoded, especially if it has query params
+        const proxyUrl = `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=jpg`;
+        const response = await fetch(proxyUrl);
+        if (response.ok) {
+            const blob = await response.blob();
+            return blobToDataURL(blob);
+        }
+    } catch (e) {
+        console.log("wsrv.nl fetch failed, trying local proxy...", e);
+    }
+
+    // 3. Try local proxy (if running via server.py)
     try {
         const proxyUrl = `/proxy?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
@@ -168,8 +185,8 @@ async function fetchImage(url) {
         const blob = await response.blob();
         return blobToDataURL(blob);
     } catch (e) {
-        console.error("Proxy fetch failed", e);
-        throw new Error("이미지를 불러올 수 없습니다. server.py를 실행했는지 확인해주세요.");
+        console.error("All fetch methods failed", e);
+        throw new Error("이미지를 불러올 수 없습니다. (CORS/Network Error)");
     }
 }
 
