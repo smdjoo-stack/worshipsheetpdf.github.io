@@ -118,61 +118,71 @@ async function generatePDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        for (let i = 0; i < setlist.length; i++) {
-            const song = setlist[i];
-
-            // Update button text to show progress
-            generatePdfBtn.textContent = `생성 중... (${i + 1}/${setlist.length})`;
-
+        // 1. Fetch all images in parallel (Faster & avoids timeout)
+        const imagePromises = setlist.map(async (song) => {
             try {
-                // Fetch image data
-                const imgData = await fetchImage(song.image_url);
-
-                // Get image properties to calculate aspect ratio
-                const imgProps = doc.getImageProperties(imgData);
-                const pdfWidth = doc.internal.pageSize.getWidth();
-                const pdfHeight = doc.internal.pageSize.getHeight();
-
-                // Calculate dimensions to fit page while maintaining aspect ratio
-                const imgRatio = imgProps.width / imgProps.height;
-                const pageRatio = pdfWidth / pdfHeight;
-
-                let w, h;
-                if (imgRatio > pageRatio) {
-                    // Image is wider than page (relative to aspect ratios)
-                    w = pdfWidth;
-                    h = w / imgRatio;
-                } else {
-                    // Image is taller than page
-                    h = pdfHeight;
-                    w = h * imgRatio;
-                }
-
-                // Center the image
-                const x = (pdfWidth - w) / 2;
-                const y = (pdfHeight - h) / 2;
-
-                // Add new page if not the first one
-                if (i > 0) {
-                    doc.addPage();
-                }
-
-                doc.addImage(imgData, 'JPEG', x, y, w, h);
-
+                const data = await fetchImage(song.image_url);
+                return { song, data, error: null };
             } catch (err) {
-                console.error(`Error processing ${song.title}:`, err);
-                // Continue to next song even if one fails
+                console.error(`Failed to load ${song.title}`, err);
+                return { song, data: null, error: err };
             }
+        });
+
+        const results = await Promise.all(imagePromises);
+
+        // 2. Add images to PDF
+        generatePdfBtn.textContent = "PDF 생성 중...";
+
+        let pageIndex = 0;
+
+        for (const item of results) {
+            if (item.error || !item.data) continue;
+
+            // Add new page if not the first successful image
+            if (pageIndex > 0) {
+                doc.addPage();
+            }
+
+            const imgData = item.data;
+            const imgProps = doc.getImageProperties(imgData);
+            const pdfWidth = doc.internal.pageSize.getWidth();
+            const pdfHeight = doc.internal.pageSize.getHeight();
+
+            const imgRatio = imgProps.width / imgProps.height;
+            const pageRatio = pdfWidth / pdfHeight;
+
+            let w, h;
+            if (imgRatio > pageRatio) {
+                w = pdfWidth;
+                h = w / imgRatio;
+            } else {
+                h = pdfHeight;
+                w = h * imgRatio;
+            }
+
+            const x = (pdfWidth - w) / 2;
+            const y = (pdfHeight - h) / 2;
+
+            doc.addImage(imgData, 'JPEG', x, y, w, h);
+            pageIndex++;
+        }
+
+        if (pageIndex === 0) {
+            throw new Error("이미지를 불러올 수 없어 PDF를 생성하지 못했습니다.");
         }
 
         generatePdfBtn.textContent = "PDF 저장 중...";
 
-        // Get current date in YYYY-MM-DD format (Local Time)
+        // Get current date in YYYY-MM-DD format
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
         const dateStr = `${year}-${month}-${day}`;
+
+        // Auto print (attempts to open print dialog when opened in compatible viewers)
+        doc.autoPrint();
 
         doc.save(`worship_songs_${dateStr}.pdf`);
 
