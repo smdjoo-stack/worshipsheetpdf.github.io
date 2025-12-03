@@ -259,52 +259,61 @@ main {
         background-color: white;
     }
 
-    /* Hide everything by default */
-    body>* {
+    /* Explicitly hide the main app interface */
+    .container,
+    .modal,
+    header,
+    main,
+    .search-section,
+    .setlist-section {
         display: none !important;
+        height: 0;
+        width: 0;
+        overflow: hidden;
     }
 
-    /* Only show the print area */
+    /* Show ONLY the print area */
     #print-area {
         display: block !important;
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
+        height: auto;
+        z-index: 9999;
     }
 
-    /* Ensure children of print area are visible */
-
+    /* Page container: 1 page per sheet */
     .print-page {
         width: 100%;
         height: 100vh;
-        /* Force full page height */
+        /* Occupy full page height */
         display: flex;
-        flex-direction: column;
         justify-content: center;
         align-items: center;
 
-        /* Force page break after each item */
+        /* Force page break */
         page-break-after: always;
         break-after: page;
 
-        /* Prevent breaking inside the image container */
-        page-break-inside: avoid;
-        break-inside: avoid;
+        /* No margins/padding to maximize space */
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
     }
 
-    /* Remove break after the last page to avoid an empty sheet */
+    /* Last page shouldn't force a blank page after it */
     .print-page:last-child {
         page-break-after: auto;
         break-after: auto;
     }
 
+    /* Image sizing */
     .print-page img {
         max-width: 100%;
         max-height: 100vh;
-        /* Use full available height */
         object-fit: contain;
-        /* Ensure the whole image is visible */
+        /* Fit within page without cropping */
         display: block;
     }
 }
