@@ -41,7 +41,13 @@ function renderSearchResults(songs) {
         const div = document.createElement('div');
         div.className = 'song-item';
         div.innerHTML = `
-            <img src="${song.image_url}" class="song-thumbnail" loading="lazy" alt="thumbnail">
+            <img src="${song.image_url}" 
+                 data-original="${song.image_url}"
+                 class="song-thumbnail" 
+                 loading="lazy" 
+                 referrerpolicy="no-referrer"
+                 onerror="if(!this.dataset.triedProxy){this.dataset.triedProxy=true; this.src='https://wsrv.nl/?url='+encodeURIComponent(this.dataset.original)+'&output=jpg';}"
+                 alt="thumbnail">
             <div class="song-info">
                 <div class="song-title">${song.title}</div>
                 <div class="song-id">ID: ${song.id}</div>
@@ -92,7 +98,12 @@ function renderSetlist() {
         const div = document.createElement('div');
         div.className = 'song-item';
         div.innerHTML = `
-            <img src="${song.image_url}" class="song-thumbnail" alt="thumbnail">
+            <img src="${song.image_url}" 
+                 data-original="${song.image_url}"
+                 class="song-thumbnail" 
+                 referrerpolicy="no-referrer"
+                 onerror="if(!this.dataset.triedProxy){this.dataset.triedProxy=true; this.src='https://wsrv.nl/?url='+encodeURIComponent(this.dataset.original)+'&output=jpg';}"
+                 alt="thumbnail">
             <div class="song-info">
                 <div class="song-title">${song.title}</div>
             </div>
