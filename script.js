@@ -35,18 +35,30 @@ function init() {
     }
 }
 
+function getProxiedUrl(url) {
+    // Naver Blog and Tistory images often block hotlinking on GitHub Pages
+    // We use wsrv.nl as a caching proxy to bypass this.
+    if (url.includes('pstatic.net') || url.includes('blog.naver.com') ||
+        url.includes('daumcdn.net') || url.includes('kakaocdn.net')) {
+        return `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=jpg`;
+    }
+    return url;
+}
+
 function renderSearchResults(songs) {
     searchResults.innerHTML = '';
     songs.forEach(song => {
         const div = document.createElement('div');
         div.className = 'song-item';
+
+        // Use proxied URL for display
+        const displayUrl = getProxiedUrl(song.image_url);
+
         div.innerHTML = `
-            <img src="${song.image_url}" 
-                 data-original="${song.image_url}"
+            <img src="${displayUrl}" 
                  class="song-thumbnail" 
                  loading="lazy" 
                  referrerpolicy="no-referrer"
-                 onerror="if(!this.dataset.triedProxy){this.dataset.triedProxy=true; this.src='https://wsrv.nl/?url='+encodeURIComponent(this.dataset.original)+'&output=jpg';}"
                  alt="thumbnail">
             <div class="song-info">
                 <div class="song-title">${song.title}</div>
@@ -58,7 +70,7 @@ function renderSearchResults(songs) {
         // Image preview
         div.querySelector('.song-thumbnail').addEventListener('click', (e) => {
             e.stopPropagation();
-            openModal(song.image_url);
+            openModal(song.image_url); // Pass original URL, openModal will proxy it
         });
 
         // Add to setlist
@@ -97,12 +109,13 @@ function renderSetlist() {
     setlist.forEach((song, index) => {
         const div = document.createElement('div');
         div.className = 'song-item';
+
+        const displayUrl = getProxiedUrl(song.image_url);
+
         div.innerHTML = `
-            <img src="${song.image_url}" 
-                 data-original="${song.image_url}"
+            <img src="${displayUrl}" 
                  class="song-thumbnail" 
                  referrerpolicy="no-referrer"
-                 onerror="if(!this.dataset.triedProxy){this.dataset.triedProxy=true; this.src='https://wsrv.nl/?url='+encodeURIComponent(this.dataset.original)+'&output=jpg';}"
                  alt="thumbnail">
             <div class="song-info">
                 <div class="song-title">${song.title}</div>
@@ -120,7 +133,8 @@ function renderSetlist() {
 
 function openModal(src) {
     modal.style.display = "block";
-    modalImg.src = src;
+    // Always proxy for modal to ensure it loads
+    modalImg.src = getProxiedUrl(src);
 }
 
 // PDF Generation using jsPDF
