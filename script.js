@@ -107,96 +107,100 @@ function openModal(src) {
     modalImg.src = src;
 }
 
-// PDF Generation / Print
+// PDF Generation using jsPDF
 async function generatePDF() {
     if (setlist.length === 0) return;
 
-    // Option 1: Try jsPDF first (if it works)
-    // But since we know CORS is tricky on GitHub Pages, let's offer a robust "Print" mode.
-    // Actually, let's just use the Print mode as the primary method for reliability.
-
-    const printArea = document.getElementById('print-area');
-    printArea.innerHTML = ''; // Clear previous
-
-    generatePdfBtn.textContent = "준비 중...";
+    generatePdfBtn.textContent = "이미지 다운로드 중...";
     generatePdfBtn.disabled = true;
 
-    // Create image elements for printing
-    const loadPromises = setlist.map(song => {
-        return new Promise((resolve, reject) => {
-            const pageDiv = document.createElement('div');
-            pageDiv.className = 'print-page';
-
-            // Optional title
-            // const titleDiv = document.createElement('div');
-            // titleDiv.className = 'print-title';
-            // titleDiv.textContent = song.title;
-            // pageDiv.appendChild(titleDiv);
-
-            const img = document.createElement('img');
-            img.crossOrigin = "anonymous"; // Try anonymous first
-
-            // Use direct URL for printing (browser handles it better than fetch)
-            // But we might still need the proxy if hotlinking is blocked.
-            // Let's try the direct URL first.
-            img.src = song.image_url;
-
-            img.onload = () => resolve();
-            img.onerror = () => {
-                // If direct load fails, try wsrv.nl
-                console.log(`Image load failed for ${song.title}, trying proxy...`);
-                img.src = `https://wsrv.nl/?url=${encodeURIComponent(song.image_url)}&output=jpg`;
-                // Reset handlers to avoid infinite loop
-                img.onload = () => resolve();
-                img.onerror = () => {
-                    console.error(`Failed to load image for ${song.title}`);
-                    resolve(); // Resolve anyway to continue printing
-                };
-            };
-
-            pageDiv.appendChild(img);
-            printArea.appendChild(pageDiv);
-        });
-    });
-
     try {
-        await Promise.all(loadPromises);
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
 
-        // Give a small delay for rendering
-        setTimeout(() => {
-            window.print();
-            generatePdfBtn.textContent = "PDF 다운로드 (인쇄)";
-            generatePdfBtn.disabled = false;
-        }, 500);
+        for (let i = 0; i < setlist.length; i++) {
+            const song = setlist[i];
+
+            // Update button text to show progress
+            generatePdfBtn.textContent = `생성 중... (${i + 1}/${setlist.length})`;
+
+            try {
+                // Fetch image data
+                const imgData = await fetchImage(song.image_url);
+
+                // Get image properties to calculate aspect ratio
+                const imgProps = doc.getImageProperties(imgData);
+                const pdfWidth = doc.internal.pageSize.getWidth();
+                const pdfHeight = doc.internal.pageSize.getHeight();
+
+                // Calculate dimensions to fit page while maintaining aspect ratio
+                const imgRatio = imgProps.width / imgProps.height;
+                const pageRatio = pdfWidth / pdfHeight;
+
+                let w, h;
+                if (imgRatio > pageRatio) {
+                    // Image is wider than page (relative to aspect ratios)
+                    w = pdfWidth;
+                    h = w / imgRatio;
+                } else {
+                    // Image is taller than page
+                    h = pdfHeight;
+                    w = h * imgRatio;
+                }
+
+                // Center the image
+                const x = (pdfWidth - w) / 2;
+                const y = (pdfHeight - h) / 2;
+
+                // Add new page if not the first one
+                if (i > 0) {
+                    doc.addPage();
+                }
+
+                doc.addImage(imgData, 'JPEG', x, y, w, h);
+
+            } catch (err) {
+                console.error(`Error processing ${song.title}:`, err);
+                // Continue to next song even if one fails
+            }
+        }
+
+        generatePdfBtn.textContent = "PDF 저장 중...";
+
+        // Get current date in YYYY-MM-DD format (Local Time)
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
+        doc.save(`worship_songs_${dateStr}.pdf`);
 
     } catch (e) {
-        console.error("Print preparation failed", e);
-        alert("인쇄 준비 중 오류가 발생했습니다.");
-        generatePdfBtn.textContent = "PDF 다운로드 (인쇄)";
+        console.error("PDF generation failed", e);
+        alert("PDF 생성 중 오류가 발생했습니다: " + e.message);
+    } finally {
+        generatePdfBtn.textContent = "PDF 다운로드";
         generatePdfBtn.disabled = false;
     }
 }
 
-// Legacy fetch function (kept for reference or future use)
+// Robust fetch function with proxies
 async function fetchImage(url) {
-    // 1. Try direct fetch with no-referrer (bypasses some hotlink protections)
+    // 1. Try direct fetch (if CORS allows)
     try {
-        const response = await fetch(url, {
-            mode: 'cors',
-            referrerPolicy: 'no-referrer'
-        });
+        const response = await fetch(url, { mode: 'cors' });
         if (response.ok) {
             const blob = await response.blob();
             return blobToDataURL(blob);
         }
     } catch (e) {
-        console.log("Direct fetch failed, trying wsrv.nl proxy...", e);
+        // console.log("Direct fetch failed, trying proxies...");
     }
 
-    // 2. Try wsrv.nl (Public CORS Proxy / Image Cache)
-    // This is useful for GitHub Pages where local proxy isn't available.
+    // 2. Try wsrv.nl (Public CORS Proxy / Image Cache) - Best for Tistory
     try {
-        // wsrv.nl requires the URL to be encoded, especially if it has query params
+        // wsrv.nl is very reliable for images
         const proxyUrl = `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=jpg`;
         const response = await fetch(proxyUrl);
         if (response.ok) {
@@ -204,10 +208,10 @@ async function fetchImage(url) {
             return blobToDataURL(blob);
         }
     } catch (e) {
-        console.log("wsrv.nl fetch failed, trying local proxy...", e);
+        console.log("wsrv.nl fetch failed", e);
     }
 
-    // 3. Try corsproxy.io (Another Public Proxy)
+    // 3. Try corsproxy.io
     try {
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
@@ -216,20 +220,10 @@ async function fetchImage(url) {
             return blobToDataURL(blob);
         }
     } catch (e) {
-        console.log("corsproxy.io fetch failed, trying local proxy...", e);
+        console.log("corsproxy.io fetch failed", e);
     }
 
-    // 4. Try local proxy (if running via server.py)
-    try {
-        const proxyUrl = `/proxy?url=${encodeURIComponent(url)}`;
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error('Proxy fetch failed');
-        const blob = await response.blob();
-        return blobToDataURL(blob);
-    } catch (e) {
-        console.error("All fetch methods failed", e);
-        throw new Error(`이미지를 불러올 수 없습니다. (URL: ${url.substring(0, 30)}...)`);
-    }
+    throw new Error(`이미지를 불러올 수 없습니다: ${url}`);
 }
 
 function blobToDataURL(blob) {
