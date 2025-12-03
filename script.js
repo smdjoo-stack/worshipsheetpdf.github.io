@@ -40,7 +40,8 @@ function getProxiedUrl(url) {
     // We use wsrv.nl as a caching proxy to bypass this.
     if (url.includes('pstatic.net') || url.includes('blog.naver.com') ||
         url.includes('daumcdn.net') || url.includes('kakaocdn.net')) {
-        return `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=jpg`;
+        // Add &bg=white to ensure transparent PNGs don't turn black when converted to JPG
+        return `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=jpg&bg=white`;
     }
     return url;
 }
