@@ -12,6 +12,11 @@ let setlist = [];
 
 // Initialize
 function init() {
+    if (typeof ALL_SONGS === 'undefined') {
+        alert("데이터를 불러오지 못했습니다. 페이지를 새로고침하거나 songs_data.js 파일이 제대로 업로드되었는지 확인해주세요.");
+        return;
+    }
+
     renderSearchResults(ALL_SONGS.slice(0, 50)); // Show first 50 initially
 
     searchInput.addEventListener('input', (e) => {
@@ -202,7 +207,7 @@ async function fetchImage(url) {
         const response = await fetch(url, { mode: 'cors' });
         if (response.ok) {
             const blob = await response.blob();
-            return blobToDataURL(blob);
+            return convertBlobToJpeg(blob);
         }
     } catch (e) {
         // console.log("Direct fetch failed, trying proxies...");
@@ -215,7 +220,7 @@ async function fetchImage(url) {
         const response = await fetch(proxyUrl);
         if (response.ok) {
             const blob = await response.blob();
-            return blobToDataURL(blob);
+            return convertBlobToJpeg(blob);
         }
     } catch (e) {
         console.log("wsrv.nl fetch failed", e);
@@ -227,7 +232,7 @@ async function fetchImage(url) {
         const response = await fetch(proxyUrl);
         if (response.ok) {
             const blob = await response.blob();
-            return blobToDataURL(blob);
+            return convertBlobToJpeg(blob);
         }
     } catch (e) {
         console.log("corsproxy.io fetch failed", e);
@@ -236,12 +241,42 @@ async function fetchImage(url) {
     throw new Error(`이미지를 불러올 수 없습니다: ${url}`);
 }
 
-function blobToDataURL(blob) {
+// Convert any image blob to JPEG Data URL using Canvas
+// This prevents "UNKNOWN" type errors in jsPDF (e.g. from WebP images)
+function convertBlobToJpeg(blob) {
     return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
+        const img = new Image();
+        const url = URL.createObjectURL(blob);
+
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+
+            // White background for transparent images (like PNGs)
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.drawImage(img, 0, 0);
+
+            // Convert to JPEG
+            try {
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                URL.revokeObjectURL(url);
+                resolve(dataUrl);
+            } catch (e) {
+                URL.revokeObjectURL(url);
+                reject(e);
+            }
+        };
+
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error("이미지 변환 중 오류가 발생했습니다."));
+        };
+
+        img.src = url;
     });
 }
 
