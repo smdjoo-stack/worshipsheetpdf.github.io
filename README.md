@@ -34,7 +34,12 @@
 
 ## 데이터 업데이트
 
-새로운 악보를 추가하려면 터미널에서 다음을 실행해야 합니다:
-1. `python3 crawl_tistory.py`
-2. `python3 fix_urls_and_convert.py`
-3. 업데이트된 `songs_data.js`를 GitHub에 다시 업로드하세요.
+티스토리(music-in.tistory.com) 악보 링크는 **매달 말일에 만료**됩니다.
+GitHub Actions(`.github/workflows/refresh-tistory.yml`)가 매일 00:05(한국 시간)에 확인하고,
+매달 1일에 자동으로 링크를 새로 받아 `songs_data.js`를 커밋합니다 (새 글도 함께 추가됩니다).
+
+바로 갱신하고 싶을 때:
+- GitHub 저장소 → **Actions** → *Refresh Tistory links* → **Run workflow** (force 체크), 또는
+- 내 컴퓨터에서 `python3 crawl_tistory.py` 실행 후 `songs_data.js`를 업로드 (추가 설치 필요 없음, 약 5분)
+
+네이버·찬송가 항목은 이 스크립트가 건드리지 않습니다.
