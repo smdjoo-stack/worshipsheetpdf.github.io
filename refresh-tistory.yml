@@ -1,0 +1,63 @@
+# Tistory sheet-music links expire at 23:59 KST on the last day of each month.
+# This runs every day at 00:05 KST; on most days the expiry check finds nothing
+# to do. On the 1st it re-crawls the blog, commits the fresh songs_data.js and
+# asks GitHub Pages to rebuild. Can also be started by hand from the Actions tab.
+name: Refresh Tistory links
+
+on:
+  schedule:
+    - cron: "5 15 * * *"   # 15:05 UTC = 00:05 KST
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Re-crawl even if links are still valid"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: refresh-tistory
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Re-crawl Tistory links if needed
+        run: |
+          if [ "${{ inputs.force }}" = "true" ]; then
+            python3 crawl_tistory.py
+          else
+            python3 crawl_tistory.py --if-expiring
+          fi
+
+      - name: Commit and push if changed
+        id: commit
+        run: |
+          if git diff --quiet -- songs_data.js; then
+            echo "No changes."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add songs_data.js
+          git commit -m "Refresh Tistory sheet links ($(TZ=Asia/Seoul date +%Y-%m-%d))"
+          git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Rebuild GitHub Pages
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" || echo "Pages build request failed; the push may still trigger a build."
